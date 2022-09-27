@@ -8,19 +8,19 @@ def calculate_Distij(demand_point_x=dfdemand['x_coordinate'],
     by evalusting the squareroot of the squared differences between every ith supply piont
     and a jth Demand point
     
-    inputs:
-    demand_point_x: X coordinate of the demand point. a fixed X coord point that we are 
-    calculating the other X coordinate distances with respect to.
-    demand_point_y: Y coordinate of the demand point. a fixed Y coord point that we are 
-    calculating the other Y coordinate distances with respect to
+    inputs:{array}
+        demand_point_x: X coordinate of the demand point. a fixed X coord point that we are 
+        calculating the other X coordinate distances with respect to.
+        demand_point_y: Y coordinate of the demand point. a fixed Y coord point that we are 
+        calculating the other Y coordinate distances with respect to
     
-    supply_point_x: X coordinate of ith supply point which we want to map to the demand 
-    point
-    supply_point_y: Y coordinate of ith supply point which we want to map to the demand 
-    point
+        supply_point_x: X coordinate of ith supply point which we want to map to the demand 
+        point
+        supply_point_y: Y coordinate of ith supply point which we want to map to the demand 
+        point
     
-    Returns:
-    returns the distance matrix(Distij) of all ith supply points to every jth demand point
+    Returns:{array}
+        returns the distance matrix(Distij) of all ith supply points to every jth demand point
     """
     
     
@@ -53,6 +53,26 @@ def calculate_Distij(demand_point_x=dfdemand['x_coordinate'],
 
 
 def truncate_min_k(x, k, inplace=False):
+    """
+    selects the ith supply points with the minimum K(specified) distances
+    to jth demand point
+    
+    inputs:{array}
+        x: a numpy array containing the distance matrices(Distij matrix)
+        k: the number of minimum ith supply point distances that we are 
+        interested in
+    
+        inplace{optional}: 
+            default: False specifies the minimum distances out of place
+                 False specifies the minimum distances in place
+    
+    Returns:{array}
+        true value of the K minimum distances and zero for the rest, note that 
+        their original indices are retained for this operation
+    """
+    
+    
+    
     m, n = x.shape
     # get (unsorted) indices of top-k values
     mink_indices = np.argpartition(x, k, axis=1)[:, :k]
@@ -71,6 +91,15 @@ min_k = truncate_min_k(x, k=k)
 
 
 def summation_Dist():
+    """
+    sums up the distances of ith supply point over all other demand point
+    
+    input: None
+    output{array}: an array of 100 values representing the overall minimum K 
+            total distances of ith supply point to every demand point
+    
+    """
+    
     real_sum = []
     for i in range(4096):
         real_sum.append(min_k[i].sum())
@@ -81,16 +110,18 @@ def summation_Dist():
 
 def supply_demand(Dforecast=dfdemand['2018'].values[:, None]):  
     """
-    Constraint5: 
+    distribute the forecasted demand for a jth Demand point to
+    every minimun K supply point in a proportion of their distances
+    to the jth demand point.the closer the ith supply point to the jth demand point,
+    the more the demand value allocated to the ith supply point
+        
     inputs:
-    trunmin: This is the truncated minimum distances of each demand points from
-    every supply points
-    di: This is the forecasted demands for a particular year
-    sum_dist: This is the sum of the truncated distances of each demand point from every 
-    supply points reshaped into 4096 X 1 to match the broadcastable shape of 'trunmin'
+    
+    Dforecast{array}: This is the forecasted demands for a particular year
     
     Return:
-        demand satisfied by each supply point by the demand point
+        demand satisfied{array} by each ith supply point with respect to jth
+        demand point
     """
     sum_dist = summation_Dist()
     min_k = truncate_min_k(x, k).reshape(4096, -1)    
@@ -115,17 +146,25 @@ dfinfra['available_cap'] = dfinfra['parking_cap'] - dfinfra['total_cap']
 
 def add_infrastructure(Dforecast=dfdemand['2018'].values[:, None]):
     """
-    purpose: This function calculates the number of additional infrastructure 
-    needed at every(100) supply points over all the demand points.
+    calculates the number of additional infrastructure 
+    needed at every(100) ith supply points that will make it satisfy the 
+    forecasted demand allocated to it by the jth demand point.
     Particularly optimizing for more FCS if more infrastructure is
-    needed
+    needed to reduce the chances of the total infrastructure(FCS + SCS) 
+    exceeding the total parking spot
+    
+    This function particularly satisfy constraint 3 that states that 
+    (FCS + SCS) at ith supply point must be greater or equals to the total
+    parking slots available, as designed by real estates{constant}
+    
     inputs:
-    sup_cap:
-    This is the overall calculated supply capacity returned by our model(calculation parameters)
-    scs_cap{constant}:
-    This is the supply or charging capacity of slow charging station at every supply point
-    const_total{constant}:
-    This is the constant total charging capacity at every supply point
+       Dforecast{array}:
+        This is the forecasted demands for a particular year
+     also makes use of some predefined functions
+     
+     output:
+         an array of numbers of additional fast charging stations necessary to
+         satisfy the forecasted demand at every ith supply points
     """
     newval =  supply_demand(Dforecast)
     newval = newval.reshape(100, -1)
@@ -150,6 +189,22 @@ def add_infrastructure(Dforecast=dfdemand['2018'].values[:, None]):
 
 
 def excess_charging_cap(Dforecast=dfdemand['2018'].values[:, None], k=k):
+    """calculates the additional or excess capacity that must be available by
+        any ith supply point, provided that its parking capacity is not able to 
+        meet the forecasted demand value. This excess capacities must be removed 
+        from the demand forecasted for the ith supply points.
+        This is a step to fish out the supply points that get too much forecasted
+        demand values. So as to not violate constraint number 5 
+       
+       inputs:
+            Dforecast{array}:
+            This is the forecasted demands for a particular year
+     also makes use of some predefined functions
+     
+     outputs: 
+             excess capacities
+    """
+    
     #dfinfra['new_FCS'] = dfinfra['existing_num_FCS'].values + to_add
     to_add = add_infrastructure(Dforecast)
     dfinfra['add_cap'] = to_add * 400
@@ -176,6 +231,23 @@ dfinfra['excess_charge_cap'].values
 
 
 def adjusted_forecast(Dforecast=dfdemand['2018'].values[:, None], k=k):
+    """
+       adjusts the forecast for each ith demand point by subtracting
+       the excess capacities or demand value detected by any jth supply 
+       point from the overall forecasted demand for the ith supply point
+       so as to completely satisfy constraint number 5 which states that
+        demand satisfied by each jth supply point must be less than or equal to the
+        maximum supply available.
+         This is more like a gradient descent step. But in this case, a
+         demand descent step.
+       inputs:
+               Dforecast{array}:
+                    This is the forecasted demands for a particular year
+               k{int}: minimum Kth of ith supply point distances that we are 
+                   interested in
+       outputs: {array}
+               the adjusted or descent forecast that satisfy constraints
+    """
     parking_cap = dfinfra['parking_cap'].values
     parking_cap.shape
     excess_cap = dfinfra['excess_charge_cap'].values
@@ -198,4 +270,28 @@ def adjusted_forecast(Dforecast=dfdemand['2018'].values[:, None], k=k):
     return forecasted
 
 
+def supply_count(min_k):
+    """
+    gets the count of occurrence of ith supply point over 
+    all the demand point
+    
+    input: {array}
+          an array containing the minimum kth distances that
+          we are interested in
+          
+    output: {list}
+           a list containing the K number of occurences of the ith
+           supply point we are interested in
+    
+    """
+   
+    kth = min_k.reshape(100, -1)
+    #print(np.unique(kth[0].sum()))
+    lis = []
+    for i in range(len(kth)):
+        for j in np.unique(kth[i], return_counts=True):
+            lis.append(j[0].sum())
+    lis = list(set(lis))
+    lis.pop(0)
+    return lis
 
