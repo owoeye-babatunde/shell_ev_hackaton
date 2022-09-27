@@ -286,12 +286,9 @@ def supply_count(min_k):
     """
    
     kth = min_k.reshape(100, -1)
-    #print(np.unique(kth[0].sum()))
     lis = []
     for i in range(len(kth)):
-        for j in np.unique(kth[i], return_counts=True):
-            lis.append(j[0].sum())
-    lis = list(set(lis))
-    lis.pop(0)
+        lis.append(len(np.unique(kth[i])))
+ 
     return lis
 
