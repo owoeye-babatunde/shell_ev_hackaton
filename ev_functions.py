@@ -2,6 +2,30 @@ def calculate_Distij(demand_point_x=dfdemand['x_coordinate'],
                     demand_point_y=dfdemand['y_coordinate'],
                     supply_point_x = dfinfra['x_coordinate'],
                     supply_point_y=dfinfra['y_coordinate']): 
+    
+     """
+    Calculate the distances between ith Demand point and jth supply(Distij) point using
+    by evalusting the squareroot of the squared differences between every ith supply piont
+    and a jth Demand point
+    
+    inputs:
+    demand_point_x: X coordinate of the demand point. a fixed X coord point that we are 
+    calculating the other X coordinate distances with respect to.
+    demand_point_y: Y coordinate of the demand point. a fixed Y coord point that we are 
+    calculating the other Y coordinate distances with respect to
+    
+    supply_point_x: X coordinate of ith supply point which we want to map to the demand 
+    point
+    supply_point_y: Y coordinate of ith supply point which we want to map to the demand 
+    point
+    
+    Returns:
+    returns the distance matrix(Distij) of all ith supply points to every jth demand point
+    """
+    
+    
+ 
+    
     # for x coord
     newdf = pd.DataFrame()
     lis = []
