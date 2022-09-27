@@ -285,10 +285,11 @@ def supply_count(min_k):
     
     """
    
+    
     kth = min_k.reshape(100, -1)
     lis = []
     for i in range(len(kth)):
         lis.append(len(np.unique(kth[i])))
- 
-    return lis
+        
+    return np.asarray(lis)
 
